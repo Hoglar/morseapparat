@@ -1,2 +1,10 @@
 test test
 Hei, Hei :)
+
+Oppgave 3 - Morseapparat
+1. Registrere forskjell på langt og kort trykk på en knapp
+2. Kjenne igjen alle bokstavene i morsekode, skriv meldingen på skjermen
+3. Koble til en busser og ha mulighet for å skrive meldinger som tekst på tastatur og sende den til buzzer
+som morsekode
+4. Koble til et LCD display og vis meldingene der
+5. Kommunisere mellom to enheter med ledninger/IR/Bluetooth
