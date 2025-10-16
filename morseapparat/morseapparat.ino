@@ -39,7 +39,7 @@ void loop() {
     Serial.print("Oversatt: ");
     Serial.println(decoded);
     Serial.println();
-
+dsad
     lcd.clear();
     lcd.setCursor(0,0);
     lcd.print("Morse:");
