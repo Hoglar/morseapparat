@@ -53,7 +53,7 @@ void setup() {
 
 void loop() {
   
-  static String input = readButtonState();
+  String input = readButtonState();
   if (input != "") {
     input.trim();
     String decoded = decoMessage(input);
