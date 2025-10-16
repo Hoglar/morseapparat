@@ -1,0 +1,271 @@
+// Anis sine variabler
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// Martin sine variabler
+const int unit = 100;
+const int buzzer = 8;
+volatile unsigned long pause = unit;
+//Pause mellom ulike signaler kan endre seg, default er en unit. dette er hva som er mellom bokstaver
+
+//Markus sine variabler
+static const int buttonPin = 12;
+int buttonStatePrevious = LOW;
+
+unsigned long minButtonLongPressDuration = 500;
+unsigned long buttonLongPressMillis;
+bool buttonStateLongPress = false;
+
+const int intervalButton = 50;
+unsigned long previousButtonMillis;
+
+unsigned long buttonPressDuration;
+
+unsigned long currentMillis;
+unsigned long lastReleaseMillis; 
+
+const int letterPause = 1000;
+const int readMessage = 3000;
+
+
+String morse[] = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..",
+  ".---", "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.",
+  "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."};
+
+char letters[] = {'A','B','C','D','E','F','G','H','I',
+  'J','K','L','M','N','O','P','Q','R',
+  'S','T','U','V','W','X','Y','Z'};
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Skriv beskjeden pÃ¥ Morse: ");
+
+  pinMode(buttonPin, INPUT);
+  Serial.println("Press button");
+
+  // Martin
+  pinMode(buzzer, OUTPUT);
+
+  lcd.init();
+  lcd.backlight();
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Morse Ready");
+}
+
+void loop() {
+  morseSignalController();
+  currentMillis = millis();
+  String input = readButtonState();
+  if (input.length() > 0) {
+    input.trim();
+    String decoded = decoMessage(input);
+
+    Serial.print("Mottatt: ");
+    Serial.println(input);
+    Serial.print("Oversatt: ");
+    Serial.println(decoded);
+    Serial.println();
+    
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Morse:");
+    lcd.setCursor(0,1);
+
+    if (decoded.length() > 16) {
+      lcd.print(decoded.substring(0,16));
+    } else {
+      lcd.print(decoded);
+    }
+  }
+}
+
+char decoMorse(String code) {
+  for (int i = 0; i < 26; i++) {
+    if (code == morse[i]) {
+      return letters[i];
+    }
+  }
+  return '?'; 
+}
+
+String decoMessage(String message) {
+  String result = "";
+  String token = "";
+
+  message += ' ';
+
+  for (unsigned int i = 0; i < message.length(); i++) {
+    char c = message[i];
+
+    if (c == ' ') {
+      if (token.length() > 0) {
+        result += decoMorse(token);
+        token = "";
+      }
+    } 
+    else if (c == '/') {
+      if (token.length() > 0) {
+        result += decoMorse(token);
+        token = "";
+      }
+      result += ' ';
+    } 
+    else {
+      token += c;
+    }
+  }
+  return result;
+}
+//button string
+String readButtonState(){
+  static String buttonSignal = "";
+  static bool pauseDetected = false; 
+  static bool messageComplete = false;
+
+  if(currentMillis - previousButtonMillis > intervalButton){
+    int buttonState = digitalRead(buttonPin);
+
+    if(buttonState == HIGH && buttonStatePrevious == LOW){
+      buttonLongPressMillis = currentMillis;
+      buttonStatePrevious = HIGH;
+      pauseDetected = false;
+      messageComplete = false;
+    }
+
+    
+    if(buttonState == LOW && buttonStatePrevious == HIGH){
+      buttonStatePrevious = LOW;
+      buttonPressDuration = currentMillis - buttonLongPressMillis;
+      lastReleaseMillis = currentMillis;
+
+      if(buttonPressDuration >= minButtonLongPressDuration){
+        Serial.println("Langt trykk (-)");
+        buttonSignal += "-";
+        //currentMorse += "-";
+      }
+      else{
+      Serial.println("Kort trykk (.)");
+      buttonSignal += ".";
+      //currentMorse += ".";
+      }
+    }
+    if (buttonState == LOW && (currentMillis - lastReleaseMillis) >= letterPause && !pauseDetected) {
+    Serial.println("Mellomrom ( )");
+    buttonSignal += " ";
+    pauseDetected = true; 
+  }
+
+  if ((currentMillis - lastReleaseMillis) >= readMessage && !messageComplete) {
+    Serial.print("Fullt signal: ");
+    Serial.println(buttonSignal);
+    String returnValue = buttonSignal;
+    buttonSignal = ""; 
+    messageComplete = true;
+    return returnValue;
+  }
+    previousButtonMillis = currentMillis;
+  }
+  return "";
+}
+
+// MorsePicker finds next char on buffer, and returns a morse string. ikke noe mere
+// Må kun calles når jeg trenger nytt morse segment. Dette vil og symbolisere en bokstav. 
+// Kan jeg sette noe pauser her? blir en noe skummel sideeffekt?
+String morsePicker() {
+    if (Serial.available() > 0) {
+        char letter = Serial.read();
+        if (letter == '\n' || letter == '\r' || letter == '\t') return "";
+
+        char cLetter = toupper(letter);
+        if(cLetter >= 'A' && cLetter <= 'Z') {
+            String morseSignal = morse[cLetter - 'A'];
+            return morseSignal;
+        }
+        else if (cLetter == ' ') {
+            return "/";
+        }
+        else {
+            Serial.println("Feil i morsePicker, ikke gyldig input!");
+            return "";
+        }
+    } 
+    else {
+        return "";
+    }
+}
+
+// Får et signal ._ eller / og handler på dette til ferdig. når ferdig, gi beskjed tilbake at klar for ny. 
+// Så lage en kontroll loop som styrer denne playeren basert på feedback
+bool playSound(unsigned long time, unsigned long pause) {
+    static unsigned long soundStart = millis();
+    static bool isDone = true;
+    if (isDone) {
+        soundStart = millis();
+        isDone = false;
+        if (time != 0) tone(buzzer, 250);
+    }
+
+    if(millis() >= soundStart + time) {
+        noTone(buzzer);
+        if(millis() >= soundStart + time + pause) {
+            isDone = true;
+        }
+    }
+    return isDone;
+}
+
+void morseSignalController() {
+    static bool ready = true;
+    static String morseSignal = "";
+    if (ready) {
+        ready = false;
+        // Kan få tilbake morse, "/" eller ""
+        morseSignal = morsePicker();
+    }
+
+    // Vi må iterere over, en av gangen. Når vi er ferdige med et signal, kan vi hente nytt og iterere over. 
+    static int signalState = 0;
+    static bool soundDone;
+    static unsigned long pause = unit;
+    if (signalState == morseSignal.length()) {
+        signalState = 0;
+        ready = true;
+        return;
+    }
+    if (signalState == morseSignal.length() -1) {
+        pause = unit*3;
+    }
+    else {
+        pause = unit;
+    }
+
+    switch (morseSignal[signalState]) {
+        case '.':
+            Serial.println("Vi er i 1");
+            soundDone = playSound(unit, pause);
+            if (soundDone) {
+                signalState++;
+            }
+            break;
+        case '-':
+            Serial.println("Vi er i 2");
+            soundDone = playSound(unit*3, pause);
+            if (soundDone) {
+                signalState++;
+            }
+            break;
+        case '/':
+            Serial.println("Vi er i 3");
+            pause = unit*7;
+            soundDone = playSound(0, pause);
+            if (soundDone) {
+                signalState++;
+            }
+            break;
+        default:
+            Serial.println("Vi er i 4, hvorfor havnet vi her !!?!");
+            break;
+    }
+}
