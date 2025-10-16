@@ -52,8 +52,9 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available() > 0) {
-    String input = Serial.readStringUntil('\n');
+  
+  static String input = readButtonState();
+  if (input != "") {
     input.trim();
     String decoded = decoMessage(input);
 
