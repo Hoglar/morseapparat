@@ -9,7 +9,24 @@ const int buzzer = 8;
 volatile unsigned long pause = unit;
 //Pause mellom ulike signaler kan endre seg, default er en unit. dette er hva som er mellom bokstaver
 
+//Markus sine variabler
+static const int buttonPin = 12;
+int buttonStatePrevious = LOW;
 
+unsigned long minButtonLongPressDuration = 500;
+unsigned long buttonLongPressMillis;
+bool buttonStateLongPress = false;
+
+const int intervalButton = 50;
+unsigned long previousButtonMillis;
+
+unsigned long buttonPressDuration;
+
+unsigned long currentMillis;
+unsigned long lastReleaseMillis; 
+
+const int letterPause = 2000;
+const int readMessage = 10000;
 
 
 String morse[] = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..",
@@ -23,6 +40,9 @@ char letters[] = {'A','B','C','D','E','F','G','H','I',
 void setup() {
   Serial.begin(9600);
   Serial.println("Skriv beskjeden pÃ¥ Morse: ");
+
+  pinMode(buttonPin, INPUT);
+  Serial.println("Press button");
 
   lcd.init();
   lcd.backlight();
@@ -92,6 +112,56 @@ String decoMessage(String message) {
     }
   }
   return result;
+}
+//button string
+String readButtonState(){
+  static String buttonSignal = "";
+  static bool pauseDetected = false; 
+  static bool messageComplete = false;
+
+  if(currentMillis - previousButtonMillis > intervalButton){
+    int buttonState = digitalRead(buttonPin);
+
+    if(buttonState == HIGH && buttonStatePrevious == LOW){
+      buttonLongPressMillis = currentMillis;
+      buttonStatePrevious = HIGH;
+      pauseDetected = false;
+      messageComplete = false;
+    }
+
+    
+    if(buttonState == LOW && buttonStatePrevious == HIGH){
+      buttonStatePrevious = LOW;
+      buttonPressDuration = currentMillis - buttonLongPressMillis;
+      lastReleaseMillis = currentMillis;
+
+      if(buttonPressDuration >= minButtonLongPressDuration){
+        Serial.println("Langt trykk (-)");
+        buttonSignal += "-";
+        //currentMorse += "-";
+      }
+      else{
+      Serial.println("Kort trykk (.)");
+      buttonSignal += ".";
+      //currentMorse += ".";
+      }
+    }
+    if (buttonState == LOW && (currentMillis - lastReleaseMillis) >= letterPause && !pauseDetected) {
+    Serial.println("Mellomrom ( )");
+    buttonSignal += " ";
+    pauseDetected = true; 
+  }
+
+  if ((currentMillis - lastReleaseMillis) >= readMessage && !messageComplete) {
+    Serial.print("Fullt signal: ");
+    Serial.println(buttonSignal);
+    return buttonSignal;
+    buttonSignal = ""; 
+    messageComplete = true;
+  }
+    previousButtonMillis = currentMillis;
+  }
+  return "";
 }
 
 
