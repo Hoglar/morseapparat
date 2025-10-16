@@ -1,13 +1,16 @@
+// Anis sine variabler
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 16, 2);
 
+// Martin sine variabler
 const int unit = 100;
 const int buzzer = 8;
-
-//Pause mellom ulike signaler kan endre seg, default er en unit. dette er hva som er mellom bokstaver
 volatile unsigned long pause = unit;
+//Pause mellom ulike signaler kan endre seg, default er en unit. dette er hva som er mellom bokstaver
 
-LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+
 
 String morse[] = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..",
   ".---", "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.",
