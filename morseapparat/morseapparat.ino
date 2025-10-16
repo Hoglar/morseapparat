@@ -52,8 +52,9 @@ void setup() {
 }
 
 void loop() {
-  
+  currentMillis = millis();
   String input = readButtonState();
+  
   if (input != "") {
     input.trim();
     String decoded = decoMessage(input);
