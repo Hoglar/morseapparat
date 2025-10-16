@@ -44,6 +44,9 @@ void setup() {
   pinMode(buttonPin, INPUT);
   Serial.println("Press button");
 
+  // Martin
+  pinMode(buzzer, OUTPUT);
+
   lcd.init();
   lcd.backlight();
   lcd.clear();
@@ -166,4 +169,103 @@ String readButtonState(){
   return "";
 }
 
+// MorsePicker finds next char on buffer, and returns a morse string. ikke noe mere
+// Må kun calles når jeg trenger nytt morse segment. Dette vil og symbolisere en bokstav. 
+// Kan jeg sette noe pauser her? blir en noe skummel sideeffekt?
+String morsePicker() {
+    if (Serial.available() > 0) {
+        char letter = Serial.read();
+        if (letter == '\n' || letter == '\r' || letter == '\t') return "";
+
+        char cLetter = toupper(letter);
+        if(cLetter >= 'A' && cLetter <= 'Z') {
+            String morseSignal = morse[cLetter - 'A'];
+            return morseSignal;
+        }
+        else if (cLetter == ' ') {
+            return "/";
+        }
+        else {
+            Serial.println("Feil i morsePicker, ikke gyldig input!");
+            return "";
+        }
+    } 
+    else {
+        return "";
+    }
+}
+
+// Får et signal ._ eller / og handler på dette til ferdig. når ferdig, gi beskjed tilbake at klar for ny. 
+// Så lage en kontroll loop som styrer denne playeren basert på feedback
+bool playSound(unsigned long time, unsigned long pause) {
+    static unsigned long soundStart = millis();
+    static bool isDone = true;
+    if (isDone) {
+        soundStart = millis();
+        isDone = false;
+        if (time != 0) tone(buzzer, 250);
+    }
+
+    if(millis() >= soundStart + time) {
+        noTone(buzzer);
+        if(millis() >= soundStart + time + pause) {
+            isDone = true;
+        }
+    }
+    return isDone;
+}
+
+void morseSignalController() {
+    static bool ready = true;
+    static String morseSignal = "";
+    if (ready) {
+        ready = false;
+        // Kan få tilbake morse, "/" eller ""
+        morseSignal = morsePicker();
+    }
+
+    // Vi må iterere over, en av gangen. Når vi er ferdige med et signal, kan vi hente nytt og iterere over. 
+    static int signalState = 0;
+    static bool soundDone;
+    static unsigned long pause = unit;
+    if (signalState == morseSignal.length()) {
+        signalState = 0;
+        ready = true;
+        return;
+    }
+    if (signalState == morseSignal.length() -1) {
+        pause = unit*3;
+    }
+    else {
+        pause = unit;
+    }
+
+    switch (morseSignal[signalState]) {
+        case '.':
+            Serial.println("Vi er i 1");
+            soundDone = playSound(unit, pause);
+            if (soundDone) {
+                signalState++;
+            }
+            break;
+        case '-':
+            Serial.println("Vi er i 2");
+            soundDone = playSound(unit*3, pause);
+            if (soundDone) {
+                signalState++;
+            }
+            break;
+        case '/':
+            Serial.println("Vi er i 3");
+            pause = unit*7;
+            soundDone = playSound(0, pause);
+            if (soundDone) {
+                signalState++;
+            }
+            break;
+        default:
+            Serial.println("Vi er i 4, hvorfor havnet vi her !!?!");
+            break;
+    }
+}
 
